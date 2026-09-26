@@ -2,6 +2,7 @@ name: Docker image
 
 on:
   push:
+    branches: ["main"]
     tags: ["v*"]
   workflow_dispatch:
 
@@ -24,6 +25,7 @@ jobs:
         with:
           images: ${{ env.IMAGE_NAME }}
           tags: |
+            type=raw,value=latest
             type=ref,event=tag
             type=sha,prefix=
 

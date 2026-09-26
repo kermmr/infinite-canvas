@@ -1,0 +1,53 @@
+name: Auto-sync upstream
+
+on:
+  schedule:
+    # 每天 UTC 04:00（北京时间 12:00）自动同步上游
+    - cron: "0 4 * * *"
+  # 也可手动触发：仓库 Actions 页面 → Auto-sync upstream → Run workflow
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Merge upstream/main into main
+        run: |
+          git remote add upstream https://github.com/basketikun/infinite-canvas.git
+          git fetch upstream main
+
+          before="$(git rev-parse main)"
+          if git merge-base --is-ancestor main upstream/main && [ "$before" = "$(git merge-base main upstream/main)" ]; then
+            echo "Already in sync with upstream; nothing to do."
+            exit 0
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          if git merge --no-ff --no-edit upstream/main; then
+            echo "Merged upstream into main: $(git log --oneline -3)"
+          else
+            echo "::error:: 与上游合并出现冲突：请手动在 fork 里合并 upstream/main（保留你的 WebDAV 同步改动），提交推 main 即可触发镜像重建。冲突不会静默跳过。"
+            git merge --abort || true
+            exit 1
+          fi
+
+      - name: Push main (triggers Docker image rebuild, refreshes :latest)
+        run: |
+          after="$(git rev-parse HEAD)"
+          before="$(git rev-parse origin/main)"
+          if [ "$after" != "$before" ]; then
+            git push origin main
+            echo "Pushed to main — docker-image workflow will rebuild and refresh ghcr.io/kermmr/infinite-canvas:latest."
+          else
+            echo "No changes to push."
+          fi
