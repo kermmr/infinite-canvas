@@ -12,6 +12,7 @@ import { ConfigLocalStorage } from "@/components/layout/config-local-storage";
 import type { AppLocale } from "@/i18n";
 import { exportAppConfig, importAppConfig } from "@/services/config-file";
 import { applyConfigSyncPayload, downloadConfigSyncFromWebdav, uploadConfigSyncToWebdav } from "@/services/config-sync";
+import { pullConfigSyncFromWebdav } from "@/hooks/auto-config-sync";
 import { syncAppDataToWebdav, type AppSyncDomainKey, type AppSyncProgressEvent } from "@/services/app-sync";
 import { testWebdavConnection, WEBDAV_MANIFEST_FILE_NAME } from "@/services/webdav-sync";
 import { audioFormatOptions, audioVoiceOptions, normalizeAudioSpeedValue } from "@/lib/audio-generation";
@@ -164,6 +165,7 @@ export function AppConfigPanel({ showDoneButton = false, initialTab = "channels"
     };
 
     const [syncingConfig, setSyncingConfig] = useState(false);
+    const [pullingConfig, setPullingConfig] = useState(false);
     const syncAiConfig = async () => {
         if (!webdavReady) {
             message.error(t("config.webdav.missingUrl"));
@@ -171,6 +173,7 @@ export function AppConfigPanel({ showDoneButton = false, initialTab = "channels"
         }
         setSyncingConfig(true);
         try {
+            // 双向：先把本地推到远端，再把远端拉回本地。
             await uploadConfigSyncToWebdav(webdav);
             const remote = await downloadConfigSyncFromWebdav(webdav);
             if (applyConfigSyncPayload(remote)) updateWebdavConfig("lastSyncedAt", new Date().toISOString());
@@ -179,6 +182,28 @@ export function AppConfigPanel({ showDoneButton = false, initialTab = "channels"
             message.error(error instanceof Error ? error.message : t("config.webdav.failed"));
         } finally {
             setSyncingConfig(false);
+        }
+    };
+    const pullAiConfig = async () => {
+        if (!webdavReady) {
+            message.error(t("config.webdav.missingUrl"));
+            return;
+        }
+        setPullingConfig(true);
+        try {
+            const result = await pullConfigSyncFromWebdav();
+            if (result === "pulled") {
+                updateWebdavConfig("lastSyncedAt", new Date().toISOString());
+                message.success(t("config.webdav.pulledConfig"));
+            } else if (result === "skipped") {
+                message.info(t("config.webdav.pulledNone"));
+            } else {
+                message.info(t("config.webdav.pulledNone"));
+            }
+        } catch (error) {
+            message.error(error instanceof Error ? error.message : t("config.webdav.failed"));
+        } finally {
+            setPullingConfig(false);
         }
     };
 
@@ -340,6 +365,9 @@ export function AppConfigPanel({ showDoneButton = false, initialTab = "channels"
                                         </Button>
                                         <Button icon={<Cloud className="size-4" />} disabled={!webdavReady || testingWebdav} loading={syncingConfig} onClick={() => void syncAiConfig()}>
                                             {t(syncingConfig ? "config.webdav.syncing" : "config.webdav.syncConfig")}
+                                        </Button>
+                                        <Button icon={<Download className="size-4" />} disabled={!webdavReady || testingWebdav} loading={pullingConfig} onClick={() => void pullAiConfig()}>
+                                            {t(pullingConfig ? "config.webdav.syncing" : "config.webdav.pullConfig")}
                                         </Button>
                                         {webdavSyncStatus ? <span className="text-xs text-stone-500">{syncStageLabel(webdavSyncStatus, t)}</span> : null}
                                     </div>
