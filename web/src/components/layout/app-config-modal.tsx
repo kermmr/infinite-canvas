@@ -1,4 +1,4 @@
-import { App, Button, Form, Input, Modal, Progress, Select, Tabs } from "antd";
+import { App, Button, Form, Input, Modal, Progress, Select, Switch, Tabs } from "antd";
 import type { TFunction } from "i18next";
 import { Cloud, Download, Pencil, Plus, RefreshCw, Trash2, Upload, Wifi } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
@@ -11,6 +11,7 @@ import { ConfigPromptSources } from "@/components/layout/config-prompt-sources";
 import { ConfigLocalStorage } from "@/components/layout/config-local-storage";
 import type { AppLocale } from "@/i18n";
 import { exportAppConfig, importAppConfig } from "@/services/config-file";
+import { applyConfigSyncPayload, downloadConfigSyncFromWebdav, uploadConfigSyncToWebdav } from "@/services/config-sync";
 import { syncAppDataToWebdav, type AppSyncDomainKey, type AppSyncProgressEvent } from "@/services/app-sync";
 import { testWebdavConnection, WEBDAV_MANIFEST_FILE_NAME } from "@/services/webdav-sync";
 import { audioFormatOptions, audioVoiceOptions, normalizeAudioSpeedValue } from "@/lib/audio-generation";
@@ -162,6 +163,25 @@ export function AppConfigPanel({ showDoneButton = false, initialTab = "channels"
         }
     };
 
+    const [syncingConfig, setSyncingConfig] = useState(false);
+    const syncAiConfig = async () => {
+        if (!webdavReady) {
+            message.error(t("config.webdav.missingUrl"));
+            return;
+        }
+        setSyncingConfig(true);
+        try {
+            await uploadConfigSyncToWebdav(webdav);
+            const remote = await downloadConfigSyncFromWebdav(webdav);
+            if (applyConfigSyncPayload(remote)) updateWebdavConfig("lastSyncedAt", new Date().toISOString());
+            message.success(t("config.webdav.configSynced"));
+        } catch (error) {
+            message.error(error instanceof Error ? error.message : t("config.webdav.failed"));
+        } finally {
+            setSyncingConfig(false);
+        }
+    };
+
     return (
         <>
             <div className="flex flex-wrap items-center justify-between gap-3 border-b border-stone-200 pb-3 dark:border-stone-800">
@@ -304,12 +324,22 @@ export function AppConfigPanel({ showDoneButton = false, initialTab = "channels"
                                             <Input.Password value={webdav.password} autoComplete="current-password" onChange={(event) => updateWebdavConfig("password", event.target.value)} />
                                         </Form.Item>
                                     </div>
+                                    <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-stone-100 pt-3 dark:border-stone-800">
+                                        <label className="flex items-center gap-2 text-xs text-stone-600 dark:text-stone-300">
+                                            <Switch size="small" checked={webdav.autoSync} onChange={(checked) => updateWebdavConfig("autoSync", checked)} />
+                                            {t("config.webdav.autoSyncLabel")}
+                                        </label>
+                                        <div className="text-xs text-stone-500">{t("config.webdav.autoSyncHint")}</div>
+                                    </div>
                                     <div className="mt-4 flex flex-wrap items-center gap-2">
                                         <Button icon={<Wifi className="size-4" />} disabled={!webdavReady || syncingWebdav} loading={testingWebdav} onClick={() => void testWebdav()}>
                                             {t("config.webdav.test")}
                                         </Button>
                                         <Button type="primary" icon={<RefreshCw className="size-4" />} disabled={!webdavReady || testingWebdav} loading={syncingWebdav} onClick={() => void syncWebdav()}>
                                             {t(syncingWebdav ? "config.webdav.syncing" : "config.webdav.syncNow")}
+                                        </Button>
+                                        <Button icon={<Cloud className="size-4" />} disabled={!webdavReady || testingWebdav} loading={syncingConfig} onClick={() => void syncAiConfig()}>
+                                            {t(syncingConfig ? "config.webdav.syncing" : "config.webdav.syncConfig")}
                                         </Button>
                                         {webdavSyncStatus ? <span className="text-xs text-stone-500">{syncStageLabel(webdavSyncStatus, t)}</span> : null}
                                     </div>

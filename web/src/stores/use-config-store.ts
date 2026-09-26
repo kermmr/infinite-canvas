@@ -62,6 +62,7 @@ export type WebdavSyncConfig = {
     password: string;
     directory: string;
     lastSyncedAt: string;
+    autoSync: boolean;
 };
 export type ConfigTabKey = "channels" | "local-proxy" | "preferences" | "prompt-sources" | "webdav" | "local-storage";
 
@@ -129,6 +130,7 @@ export const defaultWebdavSyncConfig: WebdavSyncConfig = {
     password: "",
     directory: "infinite-canvas",
     lastSyncedAt: "",
+    autoSync: false,
 };
 
 type ConfigStore = {
