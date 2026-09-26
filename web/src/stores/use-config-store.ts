@@ -125,7 +125,7 @@ export const defaultConfig: AiConfig = {
 };
 
 export const defaultWebdavSyncConfig: WebdavSyncConfig = {
-    url: "",
+    url: "https://dav.kermmr.qzz.io",
     username: "",
     password: "",
     directory: "infinite-canvas",
