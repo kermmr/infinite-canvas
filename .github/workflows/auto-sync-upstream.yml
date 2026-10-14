@@ -24,8 +24,10 @@ jobs:
           git remote add upstream https://github.com/basketikun/infinite-canvas.git
           git fetch upstream main
 
-          before="$(git rev-parse main)"
-          if git merge-base --is-ancestor main upstream/main && [ "$before" = "$(git merge-base main upstream/main)" ]; then
+          # 上游没有新提交（upstream/main 是 main 的祖先）时直接退出。
+          # 原来的写法要求 main 是 upstream/main 的祖先，fork 有自己的提交时永远不成立，
+          # 于是每天都白跑一次 merge（日志只显示 "Already up to date"）。
+          if git merge-base --is-ancestor upstream/main main; then
             echo "Already in sync with upstream; nothing to do."
             exit 0
           fi

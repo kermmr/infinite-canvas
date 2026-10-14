@@ -1,0 +1,6 @@
+# 追加式冲突专用：这类文件每次上游发版时，双方都在同一位置追加条目，
+# 用 union 合并让 git 自动并起来（保留双方新增行），避免每日自动同步卡在这里。
+# 注意：union 只适合纯追加的文件；正文两边都改动的文件不要加。
+CHANGELOG.md merge=union
+docs/content/docs/progress/pending-test.mdx merge=union
+docs/content/docs/progress/pending-test.zh-CN.mdx merge=union
